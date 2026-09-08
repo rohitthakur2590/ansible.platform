@@ -22,11 +22,11 @@ notes:
   - Global roles (e.g. Platform Auditor) cannot be assigned to teams.
   - Team roles cannot be assigned to another team (Team Admin to Team is not supported).
   - Organization Member role cannot be assigned to teams.
-  - The C(type) field in C(assignment_objects) must match the resource type expected by the
-    role definition's C(content_type). For example, a role with C(content_type=awx.project)
-    requires C(type=projects). Using C(type=organizations) for such a role will result in an
-    error. Use the organization-scoped variant of the role (e.g. "Organization Project Admin")
-    when you want to grant access to all resources of a type within an organization.
+  - The C(type) field in C(assignment_objects) must match the role definition's C(content_type).
+    Use C(type=awx.project) for a role with C(content_type=awx.project). Gateway resources are
+    the exception, use C(type=organizations) or C(type=teams). Mismatches are rejected before
+    any API call is made. Use the organization-scoped variant of the role (e.g. "Organization
+    Project Admin") to grant access to all resources of a type within an organization.
   - Attempting unsupported role assignments will result in errors.
 options:
     assignment_objects:
@@ -48,10 +48,17 @@ options:
                 required: False
             type:
                 description:
-                  - The resource type endpoint for name-based lookup.
-                  - Must match the content_type of the role definition.
-                  - Examples - C(organizations), C(teams), C(projects), C(inventories),
-                    C(credentials), C(job_templates), C(activations), C(event_streams).
+                  - Resource type used for name-based lookup. Use the same value
+                    as the role definition's C(content_type) field.
+                  - "Gateway: C(organizations), C(teams) (plural endpoint names)."
+                  - "Controller: C(awx.project), C(awx.inventory), C(awx.credential),
+                    C(awx.jobtemplate), C(awx.workflowjobtemplate),
+                    C(awx.executionenvironment), C(awx.instancegroup),
+                    C(awx.notificationtemplate)."
+                  - "EDA: C(eda.project), C(eda.activation), C(eda.eventstream),
+                    C(eda.decisionenvironment), C(eda.edacredential)."
+                  - "Hub: C(galaxy.namespace), C(galaxy.collectionremote),
+                    C(galaxy.ansiblerepository), C(galaxy.containernamespace)."
                 type: str
                 required: False
             object_id:
@@ -110,7 +117,7 @@ EXAMPLES = """
     team: "developers"
     assignment_objects:
       - name: "Demo Project"
-        type: projects
+        type: awx.project
     state: present
 
 - name: Assign resource-level role against a specific EDA activation (content_type eda.activation)
@@ -119,7 +126,16 @@ EXAMPLES = """
     team: "eda-operators"
     assignment_objects:
       - name: "prod-alert-activation"
-        type: activations
+        type: eda.activation
+    state: present
+
+- name: Assign resource-level role against an EDA project (content_type eda.project)
+  ansible.platform.role_team_assignment:
+    role_definition: EDA Project Admin
+    team: "eda-team"
+    assignment_objects:
+      - name: "EDA Project 1"
+        type: eda.project
     state: present
 
 - name: Assign role using object_ansible_id (works for any resource type)
@@ -152,54 +168,66 @@ EXAMPLES = """
 """
 
 from ..module_utils.aap_module import AAPModule
-
-
-# Maps the suffix of a role definition's content_type to the Gateway API endpoint
-# used for name-based object lookup.
-# Format: "service.ResourceName" → suffix → endpoint
-# e.g. "awx.project" → "project" → "projects"
-CONTENT_TYPE_ENDPOINT_MAP = {
-    # Gateway / shared
-    "organization": "organizations",
-    "team": "teams",
-    # Controller (awx)
-    "project": "projects",
-    "inventory": "inventories",
-    "credential": "credentials",
-    "jobtemplate": "job_templates",
-    "workflowjobtemplate": "workflow_job_templates",
-    "executionenvironment": "execution_environments",
-    "instancegroup": "instance_groups",
-    "notificationtemplate": "notification_templates",
-    # EDA (eda)
-    "activation": "activations",
-    "edacredential": "eda_credentials",
-    "eventstream": "event_streams",
-    "decisionenvironment": "decision_environments",
-    "credentialinputsource": "credential_input_sources",
-    # Hub (galaxy)
-    "namespace": "namespaces",
-    "collectionremote": "collection_remotes",
-    "ansiblerepository": "ansible_repositories",
-    "containernamespace": "container_namespaces",
-    "containerrepository": "container_repositories",
-    "task": "tasks",
-}
+from ..module_utils.resource_type_map import (
+    ASSIGNMENT_TYPE_PATH_MAP,
+    get_expected_assignment_type,
+    lookup_path_for,
+)
 
 
 def _get_expected_endpoint(role_definition):
-    """
-    Derive the Gateway API lookup endpoint from a role definition's content_type.
-
-    Returns the endpoint string (e.g. 'projects') or None for global roles
-    (content_type is null).
-    """
+    """Return the user-facing assignment type for a role definition's content_type."""
     raw = (role_definition.get("content_type") or "").strip()
     if not raw:
         return None
-    suffix = raw.split(".")[-1] if "." in raw else raw
-    # Fall back to naive pluralisation for unknown types
-    return CONTENT_TYPE_ENDPOINT_MAP.get(suffix, "{0}s".format(suffix))
+    return get_expected_assignment_type(raw)
+
+
+def _lookup_hub_object_id(module, obj_type, name):
+    """Look up a Hub (Pulp) resource by name and return a dict with an 'id' key.
+
+    Pulp list endpoints return 'results' (or occasionally 'data') and objects
+    carry 'pulp_href' instead of a numeric 'id'. The UUID at the end of
+    pulp_href is what the Gateway RBAC API expects as object_id.
+    """
+    path = lookup_path_for(obj_type)
+    url = module.build_url(path, query_params={"name": name})
+    response = module.make_request("GET", url)
+
+    if response["status_code"] != 200:
+        module.fail_json(
+            msg="Failed to look up Hub resource '{0}' at {1}: HTTP {2}".format(
+                name, path, response["status_code"]
+            )
+        )
+
+    payload = response.get("json", {})
+    items = payload.get("results") or payload.get("data") or []
+
+    if not items:
+        module.fail_json(
+            msg="No Hub resource named '{0}' found at {1}.".format(name, path)
+        )
+    if len(items) > 1:
+        module.fail_json(
+            msg="Multiple Hub resources named '{0}' found at {1}, expected exactly one.".format(
+                name, path
+            )
+        )
+
+    item = items[0]
+    pulp_href = item.get("pulp_href", "")
+    if pulp_href:
+        uuid = pulp_href.rstrip("/").rsplit("/", 1)[-1]
+        if uuid:
+            return {"id": uuid, "pulp_href": pulp_href}
+
+    module.fail_json(
+        msg=(
+            "Hub resource '{0}' at {1} returned no 'pulp_href' field. "
+            "Cannot derive an object_id for role assignment.".format(name, path)
+        )
+    )
 
 
 def assign_team_role(
@@ -251,7 +279,7 @@ def _validate_selector(entry, module, expected_endpoint=None, role_name=""):
     has_pk = entry.get("object_id") is not None
     has_uuid = bool(entry.get("object_ansible_id"))
 
-    if has_name ^ has_type:
+    if has_name and (not has_type):
         module.fail_json(
             msg="When using 'name', you must also provide 'type' in each assignment_objects item."
         )
@@ -273,7 +301,9 @@ def _validate_selector(entry, module, expected_endpoint=None, role_name=""):
         )
 
     if has_name and has_type:
-        allowed = sorted(set(CONTENT_TYPE_ENDPOINT_MAP.values()))
+        allowed = sorted(
+            set(["organizations", "teams"]) | set(ASSIGNMENT_TYPE_PATH_MAP.keys())
+        )
         if entry["type"] not in allowed:
             module.fail_json(
                 msg=("Unsupported type '{0}'. Valid types: {1}.").format(
@@ -285,6 +315,7 @@ def _validate_selector(entry, module, expected_endpoint=None, role_name=""):
         # Mismatches (e.g. type=organizations for a role with content_type=awx.project)
         # cause the Gateway API to reject the assignment with a 400/500 error.
         if expected_endpoint and entry["type"] != expected_endpoint:
+            resource = expected_endpoint.split(".")[-1] if "." in expected_endpoint else expected_endpoint.rstrip("s")
             module.fail_json(
                 msg=(
                     "Role '{role}' has content_type that requires type '{expected}' for "
@@ -298,7 +329,7 @@ def _validate_selector(entry, module, expected_endpoint=None, role_name=""):
                     role=role_name,
                     expected=expected_endpoint,
                     provided=entry["type"],
-                    resource=expected_endpoint.rstrip("s"),
+                    resource=resource,
                 )
             )
 
@@ -388,9 +419,11 @@ def main():
             )
 
             if entity["name"] and entity["type"]:
-                obj = module.get_one(
-                    entity["type"], allow_none=False, name_or_id=entity["name"]
-                )
+                path = lookup_path_for(entity["type"])
+                if path.startswith("/api/galaxy/"):
+                    obj = _lookup_hub_object_id(module, entity["type"], entity["name"])
+                else:
+                    obj = module.get_one(path, allow_none=False, name_or_id=entity["name"])
             elif entity["object_id"]:
                 obj = {"id": entity["object_id"]}
             else:
