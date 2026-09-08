@@ -132,7 +132,7 @@
             team: "{{ gw_team_name }}"
             assignment_objects:
               - name: "{{ shared_inv_name }}"
-                type: inventories
+                type: awx.inventory
                 organization: "{{ ctrl_org_preprod }}"
             state: present
           register: ctrl_scoped
@@ -153,7 +153,7 @@
             team: "{{ gw_team_name }}"
             assignment_objects:
               - name: "{{ shared_inv_name }}"
-                type: inventories
+                type: awx.inventory
             state: present
           register: ctrl_ambiguous
           ignore_errors: true
@@ -191,7 +191,7 @@
             team: "{{ gw_team_name }}"
             assignment_objects:
               - name: "{{ eda_project_name }}"
-                type: eda_projects
+                type: eda.project
                 organization: "{{ eda_org_name }}"
             state: present
           register: eda_assign
@@ -215,7 +215,7 @@
             team: "{{ gw_team_name }}"
             assignment_objects:
               - name: "{{ hub_ns_name }}"
-                type: namespaces
+                type: galaxy.namespace
             state: present
           register: hub_assign
 
@@ -231,7 +231,7 @@
             team: "{{ gw_team_name }}"
             assignment_objects:
               - name: "{{ hub_ns_name }}"
-                type: namespaces
+                type: galaxy.namespace
                 organization: "should-not-work"
             state: present
           register: hub_org

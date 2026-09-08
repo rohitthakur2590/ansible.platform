@@ -4,7 +4,7 @@
 # Required vars (set via include_tasks vars:):
 #   res_ok       - bool guard (precomputed by caller, e.g. "resource is not failed")
 #   res_name     - resource name for assignment_objects
-#   res_type     - endpoint type for assignment_objects (e.g. inventories, namespaces)
+#   res_type     - assignment type for assignment_objects (e.g. awx.inventory, galaxy.namespace)
 #   res_role_def - role definition name or ID
 #   team_name    - team name string
 #

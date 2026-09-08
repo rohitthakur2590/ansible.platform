@@ -240,13 +240,13 @@
       vars:
         res_ok: "{{ eda_de is not failed and eda_de is not skipped }}"
         res_name: "{{ eda_de_name }}"
-        res_type: decision_environments
+        res_type: eda.decisionenvironment
         res_role_def: "Decision Environment Admin"
         team_name: "{{ team1.name }}"
 
     # -- EDA project assignment (ACA-6206) ------------------------------------
-    # Uses type=eda_projects which routes to /api/eda/v1/projects/.
-    # type=projects would incorrectly route to /api/controller/v2/projects/.
+    # Uses type=eda.project (content_type format) which routes to /api/eda/v1/projects/.
+    # type=awx.project would incorrectly route to /api/controller/v2/projects/.
 
     - name: Create EDA project via EDA API
       ansible.builtin.uri:
@@ -287,7 +287,7 @@
       vars:
         res_ok: "{{ eda_project is not failed and eda_project is not skipped and eda_project_role_def is not failed }}"
         res_name: "{{ eda_project_name }}"
-        res_type: eda_projects
+        res_type: eda.project
         res_role_def: "GW-EDA-Project-Role-{{ test_id }}"
         team_name: "{{ team1.name }}"
 
@@ -336,7 +336,7 @@
       vars:
         res_ok: "{{ eda_cred is defined and eda_cred is not failed and eda_cred is not skipped }}"
         res_name: "{{ eda_cred_name }}"
-        res_type: eda_credentials
+        res_type: eda.edacredential
         res_role_def: "Eda Credential Admin"
         team_name: "{{ team1.name }}"
 
@@ -407,7 +407,7 @@
       vars:
         res_ok: "{{ eda_stream is defined and eda_stream is not failed and eda_stream is not skipped }}"
         res_name: "{{ eda_stream_name }}"
-        res_type: event_streams
+        res_type: eda.eventstream
         res_role_def: "Event Stream Admin"
         team_name: "{{ team1.name }}"
 
@@ -469,7 +469,7 @@
       vars:
         res_ok: "{{ eda_activation is defined and eda_activation is not failed and eda_activation is not skipped }}"
         res_name: "{{ eda_activation_name }}"
-        res_type: activations
+        res_type: eda.activation
         res_role_def: "Activation Admin"
         team_name: "{{ team1.name }}"
 
@@ -518,7 +518,7 @@
       vars:
         res_ok: "{{ ctrl_inventory is not failed and ctrl_inventory is not skipped }}"
         res_name: "{{ ctrl_inventory_name }}"
-        res_type: inventories
+        res_type: awx.inventory
         res_role_def: "Inventory Admin"
         team_name: "{{ team1.name }}"
 
@@ -549,7 +549,7 @@
       vars:
         res_ok: "{{ ctrl_project is not failed and ctrl_project is not skipped }}"
         res_name: "{{ ctrl_project_name }}"
-        res_type: projects
+        res_type: awx.project
         res_role_def: "Project Admin"
         team_name: "{{ team1.name }}"
 
@@ -578,7 +578,7 @@
       vars:
         res_ok: "{{ ctrl_ee is not failed and ctrl_ee is not skipped }}"
         res_name: "{{ ctrl_ee_name }}"
-        res_type: execution_environments
+        res_type: awx.executionenvironment
         res_role_def: "ExecutionEnvironment Admin"
         team_name: "{{ team1.name }}"
 
@@ -606,7 +606,7 @@
       vars:
         res_ok: "{{ ctrl_ig is not failed and ctrl_ig is not skipped }}"
         res_name: "{{ ctrl_ig_name }}"
-        res_type: instance_groups
+        res_type: awx.instancegroup
         res_role_def: "InstanceGroup Admin"
         team_name: "{{ team1.name }}"
 
@@ -655,7 +655,7 @@
       vars:
         res_ok: "{{ ctrl_cred is defined and ctrl_cred is not failed and ctrl_cred is not skipped }}"
         res_name: "{{ ctrl_cred_name }}"
-        res_type: credentials
+        res_type: awx.credential
         res_role_def: "Credential Admin"
         team_name: "{{ team1.name }}"
 
@@ -724,7 +724,7 @@
       vars:
         res_ok: "{{ ctrl_jt is defined and ctrl_jt is not failed and ctrl_jt is not skipped }}"
         res_name: "{{ ctrl_jt_name }}"
-        res_type: job_templates
+        res_type: awx.jobtemplate
         res_role_def: "JobTemplate Admin"
         team_name: "{{ team1.name }}"
 
@@ -754,7 +754,7 @@
       vars:
         res_ok: "{{ ctrl_wfjt is defined and ctrl_wfjt is not failed and ctrl_wfjt is not skipped }}"
         res_name: "{{ ctrl_wfjt_name }}"
-        res_type: workflow_job_templates
+        res_type: awx.workflowjobtemplate
         res_role_def: "WorkflowJobTemplate Admin"
         team_name: "{{ team1.name }}"
 
@@ -789,7 +789,7 @@
       vars:
         res_ok: "{{ ctrl_nt is defined and ctrl_nt is not failed and ctrl_nt is not skipped }}"
         res_name: "{{ ctrl_nt_name }}"
-        res_type: notification_templates
+        res_type: awx.notificationtemplate
         res_role_def: "NotificationTemplate Admin"
         team_name: "{{ team1.name }}"
 
@@ -817,7 +817,7 @@
       vars:
         res_ok: "{{ hub_ns is not failed and hub_ns is not skipped }}"
         res_name: "{{ hub_ns_name }}"
-        res_type: namespaces
+        res_type: galaxy.namespace
         res_role_def: "galaxy.collection_namespace_owner"
         team_name: "{{ team1.name }}"
 
@@ -848,7 +848,7 @@
       vars:
         res_ok: "{{ hub_remote is not failed and hub_remote is not skipped }}"
         res_name: "{{ hub_remote_name }}"
-        res_type: collection_remotes
+        res_type: galaxy.collectionremote
         res_role_def: "ansible.collectionremote_owner"
         team_name: "{{ team1.name }}"
 
@@ -878,7 +878,7 @@
       vars:
         res_ok: "{{ hub_repo is not failed and hub_repo is not skipped }}"
         res_name: "{{ hub_repo_name }}"
-        res_type: ansible_repositories
+        res_type: galaxy.ansiblerepository
         res_role_def: "ansible.ansiblerepository_owner"
         team_name: "{{ team1.name }}"
 
@@ -908,7 +908,7 @@
       vars:
         res_ok: "{{ hub_cns is not failed and hub_cns is not skipped }}"
         res_name: "{{ hub_cns_name }}"
-        res_type: container_namespaces
+        res_type: galaxy.containernamespace
         res_role_def: "container.containernamespace_collaborator"
         team_name: "{{ team1.name }}"
 

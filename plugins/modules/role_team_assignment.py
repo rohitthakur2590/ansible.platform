@@ -27,8 +27,8 @@ notes:
   - The C(type) value in C(assignment_objects) must match the resource type
     implied by the role definition's C(content_type). A mismatch produces
     a descriptive error before any API call is made.
-  - EDA projects must use C(type=eda_projects). Using C(type=projects) routes
-    to Controller and will fail or resolve the wrong resource.
+  - Use C(type=eda.project) for EDA projects. C(type=awx.project) routes to
+    Controller and will fail or resolve the wrong resource.
   - For Controller/EDA resources whose names are not globally unique, set
     C(organization) on each C(assignment_objects) item to scope the name lookup.
 options:
@@ -65,19 +65,17 @@ options:
                 required: false
             type:
                 description:
-                  - Resource type endpoint used for name-based lookup.
-                  - Must match the role definition's C(content_type).
-                  - "Gateway: C(organizations), C(teams)."
-                  - "Controller: C(projects), C(inventories), C(credentials),
-                    C(job_templates), C(workflow_job_templates),
-                    C(execution_environments), C(instance_groups),
-                    C(notification_templates)."
-                  - "EDA: C(eda_projects), C(activations), C(event_streams),
-                    C(decision_environments), C(eda_credentials)."
-                  - "Hub: C(namespaces), C(collection_remotes),
-                    C(ansible_repositories), C(container_namespaces)"
-                  - Use C(eda_projects) for EDA projects — C(projects) routes
-                    to Controller.
+                  - Resource type used for name-based lookup. Use the same
+                    value as the role definition's C(content_type) field.
+                  - "Gateway: C(organizations), C(teams) (plural endpoint names)."
+                  - "Controller: C(awx.project), C(awx.inventory), C(awx.credential),
+                    C(awx.jobtemplate), C(awx.workflowjobtemplate),
+                    C(awx.executionenvironment), C(awx.instancegroup),
+                    C(awx.notificationtemplate)."
+                  - "EDA: C(eda.project), C(eda.activation), C(eda.eventstream),
+                    C(eda.decisionenvironment), C(eda.edacredential)."
+                  - "Hub: C(galaxy.namespace), C(galaxy.collectionremote),
+                    C(galaxy.ansiblerepository), C(galaxy.containernamespace)."
                 type: str
                 required: false
             organization:
@@ -140,7 +138,7 @@ EXAMPLES = """
     team: "devops-team"
     assignment_objects:
       - name: "Demo Project"
-        type: projects
+        type: awx.project
     state: present
 
 # Scope name lookup when the same resource name exists in multiple orgs
@@ -150,18 +148,18 @@ EXAMPLES = """
     team: "Ops Team"
     assignment_objects:
       - name: "mco - preprod"
-        type: job_templates
+        type: awx.jobtemplate
         organization: "Preprod"
     state: present
 
-# Assign an EDA project role to a team (use eda_projects, not projects)
+# Assign an EDA project role to a team (eda.project routes to EDA, awx.project routes to Controller)
 - name: Assign EDA project role to team
   ansible.platform.role_team_assignment:
     role_definition: "eda_admin_project_access"
     team: "eda-team"
     assignment_objects:
       - name: "EDA Project 1"
-        type: eda_projects
+        type: eda.project
     state: present
 
 # Assign an EDA activation role to a team
@@ -171,7 +169,7 @@ EXAMPLES = """
     team: "eda-operators"
     assignment_objects:
       - name: "prod-alert-activation"
-        type: activations
+        type: eda.activation
     state: present
 
 # Assign a Controller inventory role to a team
@@ -181,9 +179,8 @@ EXAMPLES = """
     team: "devops-team"
     assignment_objects:
       - name: "Target Inventory"
-        type: inventories
+        type: awx.inventory
     state: present
-
 
 # Assign a Controller execution environment role to a team
 - name: Assign execution environment admin role to team
@@ -192,7 +189,7 @@ EXAMPLES = """
     team: "devops-team"
     assignment_objects:
       - name: "Cool New EE"
-        type: execution_environments
+        type: awx.executionenvironment
     state: present
 
 # Assign an EDA event stream role to a team
@@ -202,7 +199,7 @@ EXAMPLES = """
     team: "eda-team"
     assignment_objects:
       - name: "Demo Event Stream"
-        type: event_streams
+        type: eda.eventstream
     state: present
 
 # Assign a Hub namespace role to a team
@@ -212,7 +209,7 @@ EXAMPLES = """
     team: "hub-publishers"
     assignment_objects:
       - name: "my_namespace"
-        type: namespaces
+        type: galaxy.namespace
     state: present
 
 # Assign using numeric object_id directly (works for any resource type)

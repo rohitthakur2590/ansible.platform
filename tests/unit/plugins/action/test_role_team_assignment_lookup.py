@@ -16,15 +16,18 @@ from ansible_collections.ansible.platform.plugins.action.role_team_assignment im
 
 
 def test_service_kind_routes():
-    assert _service_kind("job_templates") == "controller"
-    assert _service_kind("eda_projects") == "eda"
-    assert _service_kind("namespaces") == "hub"
+    assert _service_kind("awx.jobtemplate") == "controller"
+    assert _service_kind("eda.project") == "eda"
+    assert _service_kind("galaxy.namespace") == "hub"
     assert _service_kind("teams") == "gateway"
 
 
-def test_get_expected_endpoint_eda_override():
-    assert _get_expected_endpoint("eda.project") == "eda_projects"
-    assert _get_expected_endpoint("awx.project") == "projects"
+def test_get_expected_endpoint_returns_content_type_directly():
+    assert _get_expected_endpoint("eda.project") == "eda.project"
+    assert _get_expected_endpoint("awx.project") == "awx.project"
+    assert _get_expected_endpoint("awx.inventory") == "awx.inventory"
+    assert _get_expected_endpoint("shared.organization") == "organizations"
+    assert _get_expected_endpoint("shared.team") == "teams"
 
 
 def test_matches_org_accepts_id_or_nested():
@@ -48,7 +51,7 @@ def test_resolve_named_object_controller_with_organization():
 
     oid = action._resolve_named_object_id(
         manager,
-        {"type": "job_templates", "name": "mco - preprod", "organization": "Preprod"},
+        {"type": "awx.jobtemplate", "name": "mco - preprod", "organization": "Preprod"},
     )
 
     assert oid == "202"
@@ -74,7 +77,7 @@ def test_resolve_named_object_eda_filters_organization():
 
     oid = action._resolve_named_object_id(
         manager,
-        {"type": "eda_projects", "name": "Demo", "organization": "EDA Org"},
+        {"type": "eda.project", "name": "Demo", "organization": "EDA Org"},
     )
 
     assert oid == "5"
@@ -94,7 +97,7 @@ def test_resolve_named_object_ambiguous_without_org_fails():
     with pytest.raises(ValueError, match="Expected exactly one"):
         action._resolve_named_object_id(
             manager,
-            {"type": "job_templates", "name": "mco - preprod"},
+            {"type": "awx.jobtemplate", "name": "mco - preprod"},
         )
 
 
@@ -106,5 +109,5 @@ def test_resolve_named_object_rejects_org_on_hub():
     with pytest.raises(AnsibleError, match="not supported for Hub"):
         action._resolve_named_object_id(
             manager,
-            {"type": "namespaces", "name": "ns1", "organization": "Prod"},
+            {"type": "galaxy.namespace", "name": "ns1", "organization": "Prod"},
         )

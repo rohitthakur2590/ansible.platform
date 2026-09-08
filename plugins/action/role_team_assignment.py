@@ -9,90 +9,19 @@ __metaclass__ = type
 from ansible.errors import AnsibleError
 from ansible_collections.ansible.platform.plugins.action.base_action import BaseResourceActionPlugin
 from ansible_collections.ansible.platform.plugins.plugin_utils.ansible_models.role_team_assignment import AnsibleRoleTeamAssignment
-
-_CONTENT_TYPE_ENDPOINT_MAP = {
-    "organization": "organizations",
-    "team": "teams",
-    "project": "projects",
-    "inventory": "inventories",
-    "credential": "credentials",
-    "jobtemplate": "job_templates",
-    "workflowjobtemplate": "workflow_job_templates",
-    "executionenvironment": "execution_environments",
-    "instancegroup": "instance_groups",
-    "notificationtemplate": "notification_templates",
-    "activation": "activations",
-    "edacredential": "eda_credentials",
-    "eventstream": "event_streams",
-    "decisionenvironment": "decision_environments",
-    "namespace": "namespaces",
-    "collectionremote": "collection_remotes",
-    "ansiblerepository": "ansible_repositories",
-    "containernamespace": "container_namespaces",
-}
-
-_FULL_TYPE_OVERRIDES = {
-    "eda.project": "eda_projects",
-    "eda.edacredential": "eda_credentials",
-}
-
-_SERVICE_LOOKUP_PATH_MAP = {
-    "organizations": "organizations",
-    "teams": "teams",
-    "activations": "/api/eda/v1/activations/",
-    "eda_credentials": "/api/eda/v1/eda-credentials/",
-    "event_streams": "/api/eda/v1/event-streams/",
-    "decision_environments": "/api/eda/v1/decision-environments/",
-    "eda_projects": "/api/eda/v1/projects/",
-    "projects": "/api/controller/v2/projects/",
-    "inventories": "/api/controller/v2/inventories/",
-    "credentials": "/api/controller/v2/credentials/",
-    "job_templates": "/api/controller/v2/job_templates/",
-    "workflow_job_templates": "/api/controller/v2/workflow_job_templates/",
-    "execution_environments": "/api/controller/v2/execution_environments/",
-    "instance_groups": "/api/controller/v2/instance_groups/",
-    "notification_templates": "/api/controller/v2/notification_templates/",
-    "namespaces": "/api/galaxy/v3/namespaces/",
-    "collection_remotes": "/api/galaxy/pulp/api/v3/remotes/",
-    "ansible_repositories": "/api/galaxy/pulp/api/v3/repositories/",
-    "container_namespaces": "/api/galaxy/pulp/api/v3/pulp_container/namespaces/",
-}
-
-_CONTROLLER_NON_ORG_TYPES = frozenset(
-    {
-        "execution_environments",
-        "instance_groups",
-    }
+from ansible_collections.ansible.platform.plugins.plugin_utils.resource_type_map import (
+    ASSIGNMENT_TYPE_PATH_MAP,
+    CONTROLLER_NON_ORG_TYPES,
+    GATEWAY_ORG_TYPES,
+    get_expected_assignment_type,
+    service_kind,
 )
-_GATEWAY_ORG_TYPES = frozenset({"teams"})
 
-
-def _get_expected_endpoint(content_type):
-    raw = (content_type or "").strip()
-    if not raw:
-        return None
-    if raw in _FULL_TYPE_OVERRIDES:
-        return _FULL_TYPE_OVERRIDES[raw]
-    suffix = raw.split(".")[-1] if "." in raw else raw
-    if suffix in _CONTENT_TYPE_ENDPOINT_MAP:
-        return _CONTENT_TYPE_ENDPOINT_MAP[suffix]
-    known = sorted(set(list(_CONTENT_TYPE_ENDPOINT_MAP.keys()) + list(_FULL_TYPE_OVERRIDES.keys())))
-    raise ValueError(
-        "Unknown content_type '%s' in role definition. Known suffixes/types: %s. "
-        "If this is a new resource type, add it to _CONTENT_TYPE_ENDPOINT_MAP or "
-        "_FULL_TYPE_OVERRIDES in role_team_assignment.py." % (content_type, ", ".join(known))
-    )
-
-
-def _service_kind(obj_type):
-    path = _SERVICE_LOOKUP_PATH_MAP.get(obj_type, obj_type)
-    if isinstance(path, str) and path.startswith("/api/controller/"):
-        return "controller"
-    if isinstance(path, str) and path.startswith("/api/eda/"):
-        return "eda"
-    if isinstance(path, str) and path.startswith("/api/galaxy/"):
-        return "hub"
-    return "gateway"
+_get_expected_endpoint = get_expected_assignment_type
+_service_kind = service_kind
+_SERVICE_LOOKUP_PATH_MAP = ASSIGNMENT_TYPE_PATH_MAP
+_CONTROLLER_NON_ORG_TYPES = CONTROLLER_NON_ORG_TYPES
+_GATEWAY_ORG_TYPES = GATEWAY_ORG_TYPES
 
 
 def _result_id(item, name, lookup_path):
