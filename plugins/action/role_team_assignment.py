@@ -188,7 +188,6 @@ class ActionModule(BaseResourceActionPlugin):
             except Exception:
                 pass
             _role_content_type = (_role_def_obj or {}).get("content_type") if _role_def_obj else None
-            _expected_endpoint = _get_expected_endpoint(_role_content_type)
 
             _skip = self._AUTH_PARAMS | {"assignment_objects", "state", "object_id", "object_ansible_id"}
             base_data = {k: v for k, v in validated_params.items() if v is not None and v != "" and k not in _skip}
@@ -222,6 +221,7 @@ class ActionModule(BaseResourceActionPlugin):
                 elif obj.get("object_ansible_id"):
                     per_obj["object_ansible_id"] = str(obj["object_ansible_id"])
                 elif obj.get("name") and obj.get("type"):
+                    _expected_endpoint = _get_expected_endpoint(_role_content_type)
                     if _expected_endpoint and obj["type"] != _expected_endpoint:
                         raise AnsibleError(
                             "Role '{role}' has content_type '{ct}' which requires type '{expected}' in assignment_objects, but got '{provided}'.".format(
@@ -245,7 +245,8 @@ class ActionModule(BaseResourceActionPlugin):
                                 exc,
                             )
                         ) from exc
-
+                elif obj.get("name") and not obj.get("type"):
+                    raise AnsibleError("Assignment Object has been defined only with name, but no type is associated with it")
                 if state == "present":
                     try:
                         find_result = manager.execute(operation="find", module_name=self.MODULE_NAME, ansible_data=per_obj)
