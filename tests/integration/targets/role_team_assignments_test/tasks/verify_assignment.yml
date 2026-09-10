@@ -15,8 +15,8 @@
   ansible.platform.role_team_assignment:
     role_definition: "{{ res_role_def }}"
     team: "{{ team_name }}"
-  assignment_objects:
-    - "{{ {'name': res_name, 'type': res_type, 'state': 'present'} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
+    assignment_objects:
+      - "{{ {'name': res_name, 'type': res_type} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
   register: _rta_assign
   when: res_ok | bool
   ignore_errors: true
@@ -39,8 +39,8 @@
   ansible.platform.role_team_assignment:
     role_definition: "{{ res_role_def }}"
     team: "{{ team_name }}"
-  assignment_objects:
-    - "{{ {'name': res_name, 'type': res_type, 'state': 'present'} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
+    assignment_objects:
+      - "{{ {'name': res_name, 'type': res_type} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
   register: _rta_idem
   when: res_ok | bool and _rta_assign is not failed
 
@@ -54,8 +54,9 @@
   ansible.platform.role_team_assignment:
     role_definition: "{{ res_role_def }}"
     team: "{{ team_name }}"
-  assignment_objects:
-    - "{{ {'name': res_name, 'type': res_type, 'state': 'absent'} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
+    assignment_objects:
+      - "{{ {'name': res_name, 'type': res_type} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
+    state: absent
   register: _rta_absent
   when: res_ok | bool and _rta_assign is not failed
 

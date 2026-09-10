@@ -131,9 +131,7 @@ def test_resolve_named_gateway_team_filters_prefix_match():
     action._display = MagicMock()
     manager = MagicMock()
     manager.lookup_resource_id.return_value = 2
-    manager.search_api.return_value = {
-        "data": [{"id": 10, "name": "Team-copy", "organization": 2}, {"id": 11, "name": "Team", "organization": 2}]
-    }
+    manager.search_api.return_value = {"data": [{"id": 10, "name": "Team-copy", "organization": 2}, {"id": 11, "name": "Team", "organization": 2}]}
 
     oid = action._resolve_named_object_id(manager, {"type": "teams", "name": "Team", "organization": "Production"})
 

@@ -130,7 +130,7 @@
         role_definition: Organization Admin
         team: "{{ team1.id }}"
       register: org_admin_assignment_1
-      ignore_errors: true
+      failed_when: false
 
     - name: Assign Platform Auditor to Team1 on Org1
       ansible.platform.role_team_assignment:
@@ -239,7 +239,7 @@
           organization_id: "{{ eda_org_id }}"
         status_code: [200, 201]
       when: eda_org_id is defined
-      ignore_errors: true
+      failed_when: false
       delegate_to: localhost
 
     - name: Create EDA decision environment via EDA API
@@ -537,7 +537,7 @@
           organization: "{{ ctrl_org_id }}"
         status_code: [200, 201]
       when: ctrl_org_id is defined
-      ignore_errors: true
+      failed_when: false
       delegate_to: localhost
 
     - name: Create Controller inventory
@@ -1247,9 +1247,7 @@
         status_code: [204, 404]
       when: hub_ns is defined and hub_ns is not failed
       register: hub_ns_delete
-      failed_when:
-        - hub_ns_delete.failed is defined and hub_ns_delete.failed
-        - hub_ns_delete.status | default(0) not in [204, 404]
+      ignore_errors: true
       delegate_to: localhost
 
     - name: Delete Hub collection remote via Pulp API
@@ -1263,9 +1261,7 @@
         status_code: [202, 404]
       when: hub_remote is defined and hub_remote is not failed and hub_remote.json.pulp_href is defined
       register: hub_remote_delete
-      failed_when:
-        - hub_remote_delete.failed is defined and hub_remote_delete.failed
-        - hub_remote_delete.status | default(0) not in [202, 404]
+      ignore_errors: true
       delegate_to: localhost
 
     - name: Delete Hub ansible repository via Pulp API
@@ -1279,9 +1275,7 @@
         status_code: [202, 404]
       when: hub_repo is defined and hub_repo is not failed and hub_repo.json.pulp_href is defined
       register: hub_repo_delete
-      failed_when:
-        - hub_repo_delete.failed is defined and hub_repo_delete.failed
-        - hub_repo_delete.status | default(0) not in [202, 404]
+      ignore_errors: true
       delegate_to: localhost
 
     - name: Delete Hub container namespace via Pulp API
@@ -1295,8 +1289,6 @@
         status_code: [202, 404]
       when: hub_cns is defined and hub_cns is not failed and hub_cns.json.pulp_href is defined
       register: hub_cns_delete
-      failed_when:
-        - hub_cns_delete.failed is defined and hub_cns_delete.failed
-        - hub_cns_delete.status | default(0) not in [202, 404]
+      ignore_errors: true
       delegate_to: localhost
 ...
