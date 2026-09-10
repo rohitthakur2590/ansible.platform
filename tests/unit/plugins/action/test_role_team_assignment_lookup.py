@@ -10,6 +10,7 @@ from ansible.errors import AnsibleError
 from ansible_collections.ansible.platform.plugins.action.role_team_assignment import (
     ActionModule,
     _get_expected_endpoint,
+    _matches_name,
     _matches_org,
     _service_kind,
 )
@@ -36,6 +37,12 @@ def test_matches_org_accepts_id_or_nested():
     assert not _matches_org({"organization_id": 1}, 2)
 
 
+def test_matches_name_requires_exact_match():
+    assert _matches_name({"name": "Production"}, "Production")
+    assert not _matches_name({"name": "Production-copy"}, "Production")
+    assert not _matches_name({"name": "production"}, "Production")
+
+
 def _action():
     return ActionModule.__new__(ActionModule)
 
@@ -45,8 +52,13 @@ def test_resolve_named_object_controller_with_organization():
     action._display = MagicMock()
     manager = MagicMock()
     manager.search_api.side_effect = [
-        {"results": [{"id": 2, "name": "Preprod"}]},
-        {"results": [{"id": 202, "name": "mco - preprod", "organization": 2}]},
+        {"results": [{"id": 1, "name": "Preprod-copy"}, {"id": 2, "name": "Preprod"}]},
+        {
+            "results": [
+                {"id": 101, "name": "mco - preprod-copy", "organization": 2},
+                {"id": 202, "name": "mco - preprod", "organization": 2},
+            ]
+        },
     ]
 
     oid = action._resolve_named_object_id(
@@ -66,10 +78,11 @@ def test_resolve_named_object_eda_filters_organization():
     action._display = MagicMock()
     manager = MagicMock()
     manager.search_api.side_effect = [
-        {"results": [{"id": 9, "name": "EDA Org"}]},
+        {"results": [{"id": 8, "name": "EDA Org-copy"}, {"id": 9, "name": "EDA Org"}]},
         {
             "results": [
                 {"id": 1, "name": "Demo", "organization_id": 1},
+                {"id": 4, "name": "Demo-copy", "organization_id": 9},
                 {"id": 5, "name": "Demo", "organization_id": 9},
             ]
         },
@@ -111,3 +124,17 @@ def test_resolve_named_object_rejects_org_on_hub():
             manager,
             {"type": "galaxy.namespace", "name": "ns1", "organization": "Prod"},
         )
+
+
+def test_resolve_named_gateway_team_filters_prefix_match():
+    action = _action()
+    action._display = MagicMock()
+    manager = MagicMock()
+    manager.lookup_resource_id.return_value = 2
+    manager.search_api.return_value = {
+        "data": [{"id": 10, "name": "Team-copy", "organization": 2}, {"id": 11, "name": "Team", "organization": 2}]
+    }
+
+    oid = action._resolve_named_object_id(manager, {"type": "teams", "name": "Team", "organization": "Production"})
+
+    assert oid == "11"

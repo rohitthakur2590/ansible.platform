@@ -48,6 +48,10 @@ def _matches_org(item, org_id):
     return False
 
 
+def _matches_name(item, name):
+    return item.get("name") == name
+
+
 class ActionModule(BaseResourceActionPlugin):
     MODULE_NAME = "role_team_assignment"
     MODEL_CLASS = AnsibleRoleTeamAssignment
@@ -90,7 +94,7 @@ class ActionModule(BaseResourceActionPlugin):
         else:
             return manager.lookup_resource_id("organizations", "name", organization)
 
-        results = _search_results(payload)
+        results = [result for result in _search_results(payload) if _matches_name(result, organization)]
         if len(results) != 1:
             raise AnsibleError("Expected exactly one organization named '%s' on %s, got %s" % (organization, service, len(results)))
         return _result_id(results[0], organization, "organizations")
@@ -122,8 +126,8 @@ class ActionModule(BaseResourceActionPlugin):
 
         if isinstance(lookup_path, str) and lookup_path.startswith("/api/") and not lookup_path.startswith("/api/gateway/"):
             payload = manager.search_api(lookup_path, query_params=query)
-            results = _search_results(payload)
-            if service == "eda" and org_id is not None:
+            results = [result for result in _search_results(payload) if _matches_name(result, name)]
+            if org_id is not None:
                 results = [r for r in results if _matches_org(r, org_id)]
             if len(results) != 1:
                 raise ValueError(
@@ -140,8 +144,7 @@ class ActionModule(BaseResourceActionPlugin):
 
         if org_id is not None and obj_type == "teams":
             payload = manager.search_api("teams", query_params=query)
-            results = _search_results(payload)
-            results = [r for r in results if _matches_org(r, org_id)]
+            results = [r for r in _search_results(payload) if _matches_name(r, name) and _matches_org(r, org_id)]
             if len(results) != 1:
                 raise ValueError("Expected exactly one team named '%s' in organization '%s', got %s" % (name, organization, len(results)))
             return str(_result_id(results[0], name, "teams"))

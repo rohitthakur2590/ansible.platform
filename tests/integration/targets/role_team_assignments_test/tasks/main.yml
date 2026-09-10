@@ -75,6 +75,12 @@
         organization: "{{ org1.name }}"
       register: team1
 
+    - name: Create prefix-matching Team 2
+      ansible.platform.team:
+        name: "{{ team_name_prefix }}-Team-2-prefix-match"
+        organization: "{{ org2.name }}"
+      register: team2_prefix_match
+
     - name: Create Team 2
       ansible.platform.team:
         name: "{{ team_name_prefix }}-Team-2"
@@ -97,6 +103,7 @@
       ansible.builtin.assert:
         that:
           - team1 is changed
+          - team2_prefix_match is changed
           - team2 is changed
           - team3 is changed
           - team4 is changed
@@ -194,6 +201,8 @@
         res_type: teams
         res_role_def: "Team Admin"
         team_name: "{{ team1.name }}"
+        res_organization: "{{ org2.name }}"
+        expected_object_id: "{{ team2.id }}"
 
     # -- EDA decision environment assignment (ACA-6324) -----------------------
     # EDA uses its own org ID namespace; look up the synced org by name first.
@@ -214,6 +223,24 @@
       ansible.builtin.set_fact:
         eda_org_id: "{{ eda_org.json.results[0].id }}"
       when: eda_org is not failed and eda_org.json.count > 0
+
+    - name: Create prefix-matching EDA decision environment via EDA API
+      ansible.builtin.uri:
+        url: "{{ gateway_hostname | regex_replace('/$', '') }}/api/eda/v1/decision-environments/"
+        method: POST
+        user: "{{ gateway_username }}"
+        password: "{{ gateway_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ gateway_validate_certs | bool }}"
+        body_format: json
+        body:
+          name: "{{ eda_de_name }}-prefix-match"
+          image_url: "quay.io/ansible/de-supported:latest"
+          organization_id: "{{ eda_org_id }}"
+        status_code: [200, 201]
+      when: eda_org_id is defined
+      ignore_errors: true
+      delegate_to: localhost
 
     - name: Create EDA decision environment via EDA API
       ansible.builtin.uri:
@@ -243,6 +270,8 @@
         res_type: eda.decisionenvironment
         res_role_def: "Decision Environment Admin"
         team_name: "{{ team1.name }}"
+        res_organization: "{{ org1.name }}"
+        expected_object_id: "{{ eda_de.json.id }}"
 
     # -- EDA project assignment (ACA-6206) ------------------------------------
     # Uses type=eda.project (content_type format) which routes to /api/eda/v1/projects/.
@@ -492,7 +521,24 @@
         ctrl_org_id: "{{ ctrl_default_org.json.results[0].id }}"
       when: ctrl_default_org is not failed and ctrl_default_org.json.count > 0
 
-    # -- Controller: inventory -------------------------------------------------
+# -- Controller: inventory -------------------------------------------------
+
+    - name: Create prefix-matching Controller inventory
+      ansible.builtin.uri:
+        url: "{{ gateway_hostname | regex_replace('/$', '') }}/api/controller/v2/inventories/"
+        method: POST
+        user: "{{ gateway_username }}"
+        password: "{{ gateway_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ gateway_validate_certs | bool }}"
+        body_format: json
+        body:
+          name: "{{ ctrl_inventory_name }}-prefix-match"
+          organization: "{{ ctrl_org_id }}"
+        status_code: [200, 201]
+      when: ctrl_org_id is defined
+      ignore_errors: true
+      delegate_to: localhost
 
     - name: Create Controller inventory
       ansible.builtin.uri:
@@ -521,6 +567,8 @@
         res_type: awx.inventory
         res_role_def: "Inventory Admin"
         team_name: "{{ team1.name }}"
+        res_organization: Default
+        expected_object_id: "{{ ctrl_inventory.json.id }}"
 
     # -- Controller: project ---------------------------------------------------
 
