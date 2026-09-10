@@ -14,11 +14,9 @@
 - name: "Assign to team — {{ res_type }}"
   ansible.platform.role_team_assignment:
     role_definition: "{{ res_role_def }}"
-    team: "{{ team_name }}"
-    assignment_objects:
-      - name: "{{ res_name }}"
-        type: "{{ res_type }}"
-    state: present
+  team: "{{ team_name }}"
+  assignment_objects:
+    - "{{ {'name': res_name, 'type': res_type, 'state': 'present'} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
   register: _rta_assign
   when: res_ok | bool
   ignore_errors: true
@@ -34,11 +32,9 @@
 - name: "Idempotency re-run — {{ res_type }}"
   ansible.platform.role_team_assignment:
     role_definition: "{{ res_role_def }}"
-    team: "{{ team_name }}"
-    assignment_objects:
-      - name: "{{ res_name }}"
-        type: "{{ res_type }}"
-    state: present
+  team: "{{ team_name }}"
+  assignment_objects:
+    - "{{ {'name': res_name, 'type': res_type, 'state': 'present'} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
   register: _rta_idem
   when: res_ok | bool and _rta_assign is not failed
 
@@ -51,11 +47,9 @@
 - name: "State=absent removes assignment — {{ res_type }}"
   ansible.platform.role_team_assignment:
     role_definition: "{{ res_role_def }}"
-    team: "{{ team_name }}"
-    assignment_objects:
-      - name: "{{ res_name }}"
-        type: "{{ res_type }}"
-    state: absent
+  team: "{{ team_name }}"
+  assignment_objects:
+    - "{{ {'name': res_name, 'type': res_type, 'state': 'absent'} | combine({'organization': res_organization} if res_organization is defined else {}) }}"
   register: _rta_absent
   when: res_ok | bool and _rta_assign is not failed
 

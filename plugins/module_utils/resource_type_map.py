@@ -56,6 +56,12 @@ ASSIGNMENT_TYPE_PATH_MAP = {
     "galaxy.containernamespace": "/api/galaxy/pulp/api/v3/pulp_container/namespaces/",
 }
 
+# Controller resources which do not belong to an organization.
+CONTROLLER_NON_ORG_TYPES = frozenset({"awx.executionenvironment", "awx.instancegroup"})
+
+# Gateway resources which accept organization scope.
+GATEWAY_ORG_TYPES = frozenset({"teams"})
+
 
 def get_expected_assignment_type(content_type):
     """Return the assignment_objects type value for a role_definition content_type.
@@ -83,3 +89,15 @@ def lookup_path_for(assignment_type):
     Dotted content_type values return their full /api/<service>/... path.
     """
     return ASSIGNMENT_TYPE_PATH_MAP.get(assignment_type, assignment_type)
+
+
+def service_kind(assignment_type):
+    """Return the service owning an assignment type."""
+    path = lookup_path_for(assignment_type)
+    if path.startswith("/api/controller/"):
+        return "controller"
+    if path.startswith("/api/eda/"):
+        return "eda"
+    if path.startswith("/api/galaxy/"):
+        return "hub"
+    return "gateway"

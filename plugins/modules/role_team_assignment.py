@@ -61,6 +61,12 @@ options:
                     C(galaxy.ansiblerepository), C(galaxy.containernamespace)."
                 type: str
                 required: False
+            organization:
+                description:
+                  - Organization name used to disambiguate named Controller, EDA, and Gateway team resources.
+                  - Not supported for Hub resources or Controller execution environments and instance groups.
+                type: str
+                required: False
             object_id:
                 description:
                 - The primary key of the object (team/organization) this assignment applies to.
@@ -170,8 +176,11 @@ EXAMPLES = """
 from ..module_utils.aap_module import AAPModule
 from ..module_utils.resource_type_map import (
     ASSIGNMENT_TYPE_PATH_MAP,
+    CONTROLLER_NON_ORG_TYPES,
+    GATEWAY_ORG_TYPES,
     get_expected_assignment_type,
     lookup_path_for,
+    service_kind,
 )
 
 
@@ -183,6 +192,79 @@ def _get_expected_endpoint(role_definition):
     return get_expected_assignment_type(raw)
 
 
+def _matches_org(item, org_id):
+    for key in ("organization_id", "organization"):
+        value = item.get(key)
+        if isinstance(value, dict):
+            value = value.get("id")
+        if value is not None and str(value) == str(org_id):
+            return True
+    return False
+
+
+def _lookup_exact_named_resource(module, endpoint, name, organization_id=None, query=None):
+    """Return exactly one resource whose response name equals *name*."""
+    query_params = dict(query or {})
+    query_params["name"] = name
+    response = module.get_endpoint(endpoint, data=query_params)
+    if response["status_code"] != 200:
+        module.fail_json(msg="Failed to look up resource '{0}' at {1}: HTTP {2}".format(name, endpoint, response["status_code"]))
+
+    payload = response.get("json", {})
+    items = payload.get("results") or payload.get("data") or []
+    next_page = payload.get("next")
+    while next_page:
+        page = module.make_request("GET", next_page)
+        page_payload = page.get("json", {})
+        items.extend(page_payload.get("results") or page_payload.get("data") or [])
+        next_page = page_payload.get("next")
+
+    matches = [item for item in items if item.get("name") == name]
+    if organization_id is not None:
+        matches = [item for item in matches if _matches_org(item, organization_id)]
+    if len(matches) != 1:
+        module.fail_json(
+            msg="Expected exactly one resource named '{0}'{1} at {2}, got {3}.".format(
+                name,
+                " in organization '{0}'".format(organization_id) if organization_id is not None else "",
+                endpoint,
+                len(matches),
+            )
+        )
+    return matches[0]
+
+
+def _resolve_organization_id(module, organization, service):
+    endpoint = {
+        "controller": "/api/controller/v2/organizations/",
+        "eda": "/api/eda/v1/organizations/",
+        "gateway": "organizations",
+    }[service]
+    return _lookup_exact_named_resource(module, endpoint, organization)["id"]
+
+
+def _resolve_named_object(module, entry):
+    obj_type = entry["type"]
+    name = entry["name"]
+    organization = entry.get("organization")
+    service = service_kind(obj_type)
+    path = lookup_path_for(obj_type)
+
+    if organization and service == "hub":
+        module.fail_json(msg="organization is not supported for Hub type '{0}'".format(obj_type))
+    if organization and service == "controller" and obj_type in CONTROLLER_NON_ORG_TYPES:
+        module.fail_json(msg="organization is not supported for Controller type '{0}'".format(obj_type))
+    if organization and service == "gateway" and obj_type not in GATEWAY_ORG_TYPES:
+        module.fail_json(msg="organization is only supported for Gateway type 'teams' (got '{0}')".format(obj_type))
+
+    if service == "hub":
+        return _lookup_hub_object_id(module, obj_type, name)
+
+    org_id = _resolve_organization_id(module, organization, service) if organization else None
+    query = {"organization": org_id} if org_id is not None and service in ("controller", "gateway") else None
+    return _lookup_exact_named_resource(module, path, name, organization_id=org_id, query=query)
+
+
 def _lookup_hub_object_id(module, obj_type, name):
     """Look up a Hub (Pulp) resource by name and return a dict with an 'id' key.
 
@@ -191,31 +273,7 @@ def _lookup_hub_object_id(module, obj_type, name):
     pulp_href is what the Gateway RBAC API expects as object_id.
     """
     path = lookup_path_for(obj_type)
-    url = module.build_url(path, query_params={"name": name})
-    response = module.make_request("GET", url)
-
-    if response["status_code"] != 200:
-        module.fail_json(
-            msg="Failed to look up Hub resource '{0}' at {1}: HTTP {2}".format(
-                name, path, response["status_code"]
-            )
-        )
-
-    payload = response.get("json", {})
-    items = payload.get("results") or payload.get("data") or []
-
-    if not items:
-        module.fail_json(
-            msg="No Hub resource named '{0}' found at {1}.".format(name, path)
-        )
-    if len(items) > 1:
-        module.fail_json(
-            msg="Multiple Hub resources named '{0}' found at {1}, expected exactly one.".format(
-                name, path
-            )
-        )
-
-    item = items[0]
+    item = _lookup_exact_named_resource(module, path, name)
     pulp_href = item.get("pulp_href", "")
     if pulp_href:
         uuid = pulp_href.rstrip("/").rsplit("/", 1)[-1]
@@ -345,6 +403,7 @@ def main():
             options=dict(
                 name=dict(type="str", required=False),
                 type=dict(type="str", required=False),
+                organization=dict(type="str", required=False),
                 object_id=dict(required=False, type="int"),
                 object_ansible_id=dict(required=False, type="str"),
             ),
@@ -367,10 +426,16 @@ def main():
     team_ansible_id = module.params.get("team_ansible_id")
     state = module.params.get("state")
 
-    role_definition = module.get_one(
-        "role_definitions", allow_none=False, name_or_id=role_definition_str
+    role_definition = (
+        module.get_one("role_definitions", allow_none=False, name_or_id=role_definition_str)
+        if role_definition_str.isdigit()
+        else _lookup_exact_named_resource(module, "role_definitions", role_definition_str)
     )
-    team = module.get_one("teams", allow_none=True, name_or_id=team_param)
+    team = (
+        module.get_one("teams", allow_none=True, name_or_id=team_param)
+        if team_param and team_param.isdigit()
+        else (_lookup_exact_named_resource(module, "teams", team_param) if team_param else None)
+    )
 
     kwargs = {
         "role_definition": role_definition["id"],
@@ -419,11 +484,7 @@ def main():
             )
 
             if entity["name"] and entity["type"]:
-                path = lookup_path_for(entity["type"])
-                if path.startswith("/api/galaxy/"):
-                    obj = _lookup_hub_object_id(module, entity["type"], entity["name"])
-                else:
-                    obj = module.get_one(path, allow_none=False, name_or_id=entity["name"])
+                obj = _resolve_named_object(module, entity)
             elif entity["object_id"]:
                 obj = {"id": entity["object_id"]}
             else:

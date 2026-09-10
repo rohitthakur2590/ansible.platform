@@ -82,6 +82,13 @@
         description: "Test Team 1"
       register: team1
 
+    - name: Create prefix-matching Team 2 in Organization 2
+      ansible.platform.team:
+        name: "{{ team_name_prefix }}-Team-2-prefix-match"
+        organization: "{{ org2.name }}"
+        description: "Prefix collision for strict lookup coverage"
+      register: team2_prefix_match
+
     - name: Create Team 2 in Organization 2
       ansible.platform.team:
         name: "{{ team_name_prefix }}-Team-2"
@@ -107,6 +114,7 @@
       ansible.builtin.assert:
         that:
           - team1 is changed
+          - team2_prefix_match is changed
           - team2 is changed
           - team3 is changed
           - team4 is changed
@@ -286,9 +294,10 @@
       vars:
         res_ok: "{{ team2 is defined }}"
         res_name: "{{ team2.name }}"
-        res_type: teams
-        res_role_def: "Team Admin"
-        team_name: "{{ team1.name }}"
+      res_type: teams
+      res_role_def: "Team Admin"
+      team_name: "{{ team1.name }}"
+      res_organization: "{{ org2.name }}"
 
     # -- EDA: decision environment --------------------------------------------
     # EDA uses its own org ID namespace; look up the synced org by name first.
@@ -382,9 +391,10 @@
       vars:
         res_ok: "{{ eda_project is not failed and eda_project is not skipped and eda_project_role_def is not failed }}"
         res_name: "{{ eda_project_name }}"
-        res_type: eda.project
-        res_role_def: "GW-EDA-Project-Role-{{ test_id }}"
-        team_name: "{{ team1.name }}"
+      res_type: eda.project
+      res_role_def: "GW-EDA-Project-Role-{{ test_id }}"
+      team_name: "{{ team1.name }}"
+      res_organization: "{{ org1.name }}"
 
     # Assign the same EDA project role via object_id — no type needed, the role's
     # content_type (eda.project) tells the Gateway which resource the ID refers to.
@@ -639,9 +649,10 @@
       vars:
         res_ok: "{{ ctrl_inventory is not failed and ctrl_inventory is not skipped }}"
         res_name: "{{ ctrl_inventory_name }}"
-        res_type: awx.inventory
-        res_role_def: "Inventory Admin"
-        team_name: "{{ team1.name }}"
+      res_type: awx.inventory
+      res_role_def: "Inventory Admin"
+      team_name: "{{ team1.name }}"
+      res_organization: Default
 
     # Assign the same role via object_id — numeric ID bypasses name lookup entirely.
     - name: Assign inventory role to team via object_id
