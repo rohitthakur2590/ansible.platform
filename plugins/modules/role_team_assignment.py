@@ -448,7 +448,6 @@ def main():
     # Derive the expected lookup endpoint from the role's content_type.
     # This is used to validate that assignment_objects[*].type is compatible
     # and to avoid sending a mismatched object_id to the Gateway API.
-    expected_endpoint = _get_expected_endpoint(role_definition)
     object_param = assignment_objects
     results = []
 
@@ -476,19 +475,31 @@ def main():
         # entries using object_id / object_ansible_id (which bypass name
         # lookup and need no type validation) are always handled.
         for entity in object_param:
-            _validate_selector(
-                entity,
-                module,
-                expected_endpoint=expected_endpoint,
-                role_name=role_definition_str,
-            )
-
             if entity["name"] and entity["type"]:
+                expected_endpoint = _get_expected_endpoint(role_definition)
+                _validate_selector(
+                    entity,
+                    module,
+                    expected_endpoint=expected_endpoint,
+                    role_name=role_definition_str,
+                )
                 obj = _resolve_named_object(module, entity)
             elif entity["object_id"]:
+                _validate_selector(
+                    entity,
+                    module,
+                    expected_endpoint=None,
+                    role_name=role_definition_str,
+                )
                 obj = {"id": entity["object_id"]}
             else:
                 # object_ansible_id path — pass through directly
+                _validate_selector(
+                    entity,
+                    module,
+                    expected_endpoint=None,
+                    role_name=role_definition_str,
+                )
                 kwargs["object_ansible_id"] = entity["object_ansible_id"]
                 role_team_assignment = module.get_one(
                     "role_team_assignments", **{"data": kwargs}
