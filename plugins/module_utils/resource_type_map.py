@@ -39,7 +39,6 @@ ASSIGNMENT_TYPE_PATH_MAP = {
     "eda.edacredential": "/api/eda/v1/eda-credentials/",
     "eda.eventstream": "/api/eda/v1/event-streams/",
     "eda.decisionenvironment": "/api/eda/v1/decision-environments/",
-    "eda.credentialinputsource": "/api/eda/v1/credential-input-sources/",
     # Controller
     "awx.project": "/api/controller/v2/projects/",
     "awx.inventory": "/api/controller/v2/inventories/",
